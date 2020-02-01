@@ -25,5 +25,9 @@ def translate_questions(questions, target):
             s['text'] = translate_client.translate(s['text'])['translatedText']
     
     return questions
+
+def translate_phrase(phrase, target):
+    translate_client = translate.Client(target_language=target)
+    return translate_client.translate(phrase)['translatedText']
                     
                 

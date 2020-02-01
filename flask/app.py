@@ -1,41 +1,68 @@
 from flask import Flask, render_template, make_response, jsonify, request
-from translator import translate_data, translate_questions
+from translator import translate_data, translate_questions, translate_phrase
 import json
 app = Flask(__name__)
+
+lower = 'abcdefg'
 
 @app.route('/getQuestions/', methods=['GET'])
 def get_questions():
     lang = request.args.get("lang")
-    document = request.args.get("document")    
-    questions = json.load(open('{}.json'.format(document), 'r'))
-    questions = translate_questions(questions, lang)
+    document = request.args.get("document")
     
-    a = '<form action="/formSubmit" method="post">'
+    questions = json.load(open('{}.json'.format(document), 'r'))
+
+    if request.args.get('type') == 'json':
+        return jsonify(questions)
+
+    
+    questions = translate_questions(questions, lang)
+
+    
+    placeholder = translate_phrase('Answer here', lang)
+    
+    a = ""
     for q in questions:
         if q['qtype'] == 'text' and len(q['children']) == 0:
             a += '''
-            <p>{}</p>
-            <input type="text" name="{}"><br>
-            '''.format(q['main']['text'], q['main']['text'].split('.')[0])
+            <div class="form-group">
+            <label for="{}">{}</label>
+            <input type="name" name="{}" class="form-control" id="{}" placeholder="{}"></div>
+            '''.format(q['main']['text'].split('.')[0], q['main']['text'], q['main']['text'].split('.')[0], q['main']['text'].split('.')[0], placeholder)
+            
 
         elif q['qtype'] == 'text':
             a += '''
-            <p>{}</p>
-            '''.format(q['main']['text'])
+            <div class="form-group">
+            <label for="{}">{}</label><br>
+            '''.format(q['main']['text'].split('.')[0], q['main']['text'])
+            count = 0
             for s in q['children']:
                 a += '''
-                <p>\t{}</p>
-                \t<input type="text" name="firstname"><br>
-                '''.format(s['text'])
+                <div class="form-group">
+                <label for="{}">{}</label>
+                <input type="name" class="form-control" id="{}" placeholder="{}" name="{}"></div>
+                '''.format(q['main']['text'].split('.')[0] + lower[count] + '. ', lower[count] + '. ' + s['text'], q['main']['text'].split('.')[0] + lower[count] + '. ', placeholder, q['main']['text'].split('.')[0] + lower[count])
+                count += 1
+
+            a += "</div>"
 
         elif q['qtype'] == 'radio':
             a += '''
-            <p>{}</p>
-            '''.format(q['main']['text'])
+            <label for="{}">{}</label>
+            <div class="form-group form-inline" id ="{}">
+            '''.format(q['main']['text'].split('.')[0], q['main']['text'], q['main']['text'].split('.')[0])
+            count = 0
             for s in q['children']:
                 a += '''
-                <input type="radio" name="{}" value="{}">{}<br>
-                '''.format(q['main']['text'].split('.')[0], s['text'], s['text'])
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="{}" id="Yes" value="{}">
+                    <label class="form-check-label" for="Yes">{}</label>
+                </div>
+                '''.format(q['main']['text'].split('.')[0], count, s['text'])
+
+                count += 1
+            a += "</div>"
 
         else:
             a += '''
@@ -47,14 +74,19 @@ def get_questions():
                 '''.format(s['text'])
 
     a += """
-        <input type="submit" value="Submit">
-        </form>"""
+        <input class="btn btn-primary" type="submit" value="Submit">
+        """
 
     return a
 
 @app.route('/formSubmit', methods=['GET', 'POST'])
 def form_submit():
-    
+    if request.method == 'POST':
+        answers = request.form
+        for key in answers:
+            answers 
+        return request.form
+    return 'you are a failure'
 
 @app.route('/document/<lang>')
 def document_select(lang):
@@ -63,6 +95,9 @@ def document_select(lang):
             {'title':'Other', 'body':'Complete a form different from the ones presented.', 'upload':'Upload'}]
 
     data = translate_data(data, lang)
+    data[0]['url'] = '/i589/{}'.format(lang)
+    data[1]['url'] = '/i485/{}'.format(lang)
+    data[2]['url'] = '/upload'
 
     return render_template("document.html", data=data)
 
@@ -70,7 +105,11 @@ def document_select(lang):
 def i589(lang):
     
             
-    return render_template('test.html', lang=lang)
+    return render_template('form.html', lang=lang)
+
+@app.route('/form')
+def form():
+    return render_template('form.html')
         
 
 
