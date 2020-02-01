@@ -15,6 +15,10 @@ class Question:
         print(self.main)
         for i in self.children:
             print('\t{}'.format(i))
+
+    def add_answer(self, answer):
+        self.answer = answer
+        
     def __str__(self):
         return str(self.main)
 
@@ -25,6 +29,7 @@ class Entry:
 
     def __str__(self):
         return str(self.text)
+
 
 def textract(document_name):
     with open(document_name, 'rb') as document:
@@ -38,7 +43,6 @@ def textract(document_name):
     outname = document_name.split('.')[0]
     with open('{}.json'.format(outname), 'w') as outfile:
         json.dump(response, outfile)
-
 
 
 def pull_questions_grid(response):
@@ -62,7 +66,6 @@ def pull_questions_grid(response):
             else:
                 qtype = 'textbox'
 
-            print(main, qtype)
             questions.append(Question(main, children, qtype))
             children = []
             main = line
@@ -79,6 +82,7 @@ def pull_questions_grid(response):
 
     return questions
 
+
 def draw_answers(im, questions):
     coordinates = questions[0].main.box
     height = int(im.height*coordinates['Height'])
@@ -90,11 +94,11 @@ def draw_answers(im, questions):
     for question in questions:
         if question.qtype == 'textbox' and len(question.children) == 0:
             coordinates = question.main.box
-            d.text((im.width*coordinates['Left'], im.height*coordinates['Top']+(height*1.4)),"Answer", font=fnt, fill=(0,0,0,255))
+            d.text((im.width*coordinates['Left'], im.height*coordinates['Top']+(height*1.4)), question.answer, font=fnt, fill=(0,0,0,255))
         elif question.qtype == 'textbox':
-            for subquestion in question.children:
-                coordinates = subquestion.box
-                d.text((im.width*coordinates['Left'], im.height*coordinates['Top']+(height*1.4)),"Answer", font=fnt, fill=(0,0,0,255))
+            for i in range(len(question.children)):
+                coordinates = question.children[i].box
+                d.text((im.width*coordinates['Left'], im.height*coordinates['Top']+(height*1.4)),question.answer[i], font=fnt, fill=(0,0,0,255))
         elif question.qtype == 'checkbox':
             coordinates = question.children[2].box
             d.text((im.width*coordinates['Left']-im.width*.026, im.height*coordinates['Top']),"X", font=fnt, fill=(0,0,0,255))
@@ -111,6 +115,21 @@ def print_response(response):
     print(json.dumps(response, indent=4, sort_keys=True))
 
 
+def collect_answers(questions):
+    for question in questions:
+        if question.qtype == 'textbox':
+            print(question)
+            if len(question.children) == 0:
+                a = input()
+                question.add_answer(a)
+            else:
+                answers = []
+                for subquestion in question.children:
+                    print(subquestion)
+                    a = input()
+                    answers.append(a)
+                question.add_answer(answers)
+
 
 if __name__ == '__main__':
     im = Image.open('grid.png')
@@ -121,8 +140,11 @@ if __name__ == '__main__':
     # build list of questions from AWS Response
     questions = pull_questions_grid(response)
 
+    collect_answers(questions)
+
     # draw answers to corresponding questions
     draw_answers(im, questions)
+
 
     
    
