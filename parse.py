@@ -1,18 +1,26 @@
 import json
 import boto3
+from PIL import Image, ImageDraw, ImageFont
 
 caps = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'
 
 class Question:
 
-    def __init__(self, main, children):
+    def __init__(self, main, children, qtype):
         self.main  = main
         self.children = children
+        self.qtype = qtype
 
     def display(self):
         print(self.main)
         for i in self.children:
             print('\t{}'.format(i))
+
+    def add_answer(self, answer):
+        self.answer = answer
+        
+    def __str__(self):
+        return str(self.main)
 
 class Entry:
     def __init__(self, text, box):
@@ -20,7 +28,8 @@ class Entry:
         self.box = box
 
     def __str__(self):
-        return self.text
+        return str(self.text)
+
 
 def textract(document_name):
     with open(document_name, 'rb') as document:
@@ -31,15 +40,10 @@ def textract(document_name):
                             aws_secret_access_key='NwkgJKjHIi4HyNEmL2CLLAYYC3y2rzIQWIC7492m')
 
     response = textract.detect_document_text(Document={'Bytes': image_bytes})
-    with open('form3.json', 'w') as outfile:
+    outname = document_name.split('.')[0]
+    with open('{}.json'.format(outname), 'w') as outfile:
         json.dump(response, outfile)
 
-def pull_text(response):
-    all_text = []
-    for block in response['Blocks']:
-        if block['BlockType'] == "LINE" and block['Text'] != 'C' and block['Text'] != ')' and block['Text'] != 'b.' and block['Text'] != 'c.':
-            all_text.append(block['Text'])
-    return all_text
 
 def pull_questions_grid(response):
     entries = []
@@ -55,26 +59,93 @@ def pull_questions_grid(response):
     
     for line in entries[1:]:
         if line.text[0].isdigit():
-            questions.append(Question(main, children))
+            if 'Gender' in main.text or 'Marital' in main.text:
+                qtype = 'radio'
+            elif 'Check' in main.text:
+                qtype = 'checkbox'
+            else:
+                qtype = 'textbox'
+
+            questions.append(Question(main, children, qtype))
             children = []
             main = line
         else:
             children.append(line)
 
-    questions.append(Question(main, children))
+    if 'Gender' in main.text or 'Marital' in main.text:
+        qtype = 'radio'
+    elif 'Check' in main.text:
+        qtype = 'checkbox'
+    else:
+        qtype = 'textbox'
+    questions.append(Question(main, children, qtype))
 
     return questions
+
+
+def draw_answers(im, questions):
+    coordinates = questions[0].main.box
+    height = int(im.height*coordinates['Height'])
+
+    text_layer = Image.new('RGBA', im.size, (255,255,255,0))
+    fnt = ImageFont.truetype('arial.ttf', height)
+    d = ImageDraw.Draw(text_layer)
+
+    for question in questions:
+        if question.qtype == 'textbox' and len(question.children) == 0:
+            coordinates = question.main.box
+            d.text((im.width*coordinates['Left'], im.height*coordinates['Top']+(height*1.4)), question.answer, font=fnt, fill=(0,0,0,255))
+        elif question.qtype == 'textbox':
+            for i in range(len(question.children)):
+                coordinates = question.children[i].box
+                d.text((im.width*coordinates['Left'], im.height*coordinates['Top']+(height*1.4)),question.answer[i], font=fnt, fill=(0,0,0,255))
+        elif question.qtype == 'checkbox':
+            coordinates = question.children[2].box
+            d.text((im.width*coordinates['Left']-im.width*.026, im.height*coordinates['Top']),"X", font=fnt, fill=(0,0,0,255))
+        else:
+            coordinates = question.children[0].box
+            d.text((im.width*coordinates['Left']-im.width*.03, im.height*coordinates['Top']),"X", font=fnt, fill=(0,0,0,255))
+
+    out = Image.alpha_composite(im, text_layer)
+
+    out.show()
     
 
 def print_response(response):
     print(json.dumps(response, indent=4, sort_keys=True))
 
 
+def collect_answers(questions):
+    for question in questions:
+        if question.qtype == 'textbox':
+            print(question)
+            if len(question.children) == 0:
+                a = input()
+                question.add_answer(a)
+            else:
+                answers = []
+                for subquestion in question.children:
+                    print(subquestion)
+                    a = input()
+                    answers.append(a)
+                question.add_answer(answers)
+
 
 if __name__ == '__main__':
-    with open('response.json') as json_file:
+    im = Image.open('grid.png')
+
+    with open('grid.json') as json_file:
         response = json.load(json_file)
 
-    for i in pull_questions_grid(response):
-        i.display()
+    # build list of questions from AWS Response
+    questions = pull_questions_grid(response)
+
+    collect_answers(questions)
+
+    # draw answers to corresponding questions
+    draw_answers(im, questions)
+
+
+    
+   
         
