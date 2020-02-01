@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<script>
+$(document).ready(function(){
+  // get
+  $.getJSON("/getData/grid.png", function(data, status){
+
+
+    $.each(data, function(index, value) {
+      var formatted  = JSON.stringify(value, null, '\t');
+      if (value["qtype"] == "text"){
+        $(".test").append($('<pre>').text(value["main"]["text"]));
+      }
+    });
+
+  });
+});
+</script>
+</head>
+<body>
+<div class="test">
+
+</div>
+</body>
+</html>
+
+</html>

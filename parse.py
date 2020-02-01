@@ -30,7 +30,6 @@ class Entry:
     def __str__(self):
         return str(self.text)
 
-
 def textract(document_name):
     with open(document_name, 'rb') as document:
         image_bytes = bytearray(document.read())
@@ -129,6 +128,8 @@ def collect_answers(questions):
                     a = input()
                     answers.append(a)
                 question.add_answer(answers)
+                
+            
 
 
 if __name__ == '__main__':
