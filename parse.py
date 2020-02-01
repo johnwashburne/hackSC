@@ -6,14 +6,17 @@ caps = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'
 
 class Question:
 
-    def __init__(self, main, children):
+    def __init__(self, main, children, qtype):
         self.main  = main
         self.children = children
+        self.qtype = qtype
 
     def display(self):
         print(self.main)
         for i in self.children:
             print('\t{}'.format(i))
+    def __str__(self):
+        return str(self.main)
 
 class Entry:
     def __init__(self, text, box):
@@ -21,7 +24,7 @@ class Entry:
         self.box = box
 
     def __str__(self):
-        return self.text
+        return str(self.text)
 
 def textract(document_name):
     with open(document_name, 'rb') as document:
@@ -52,13 +55,27 @@ def pull_questions_grid(response):
     
     for line in entries[1:]:
         if line.text[0].isdigit():
-            questions.append(Question(main, children))
+            if 'Gender' in main.text or 'Marital' in main.text:
+                qtype = 'radio'
+            elif 'Check' in main.text:
+                qtype = 'checkbox'
+            else:
+                qtype = 'textbox'
+
+            print(main, qtype)
+            questions.append(Question(main, children, qtype))
             children = []
             main = line
         else:
             children.append(line)
 
-    questions.append(Question(main, children))
+    if 'Gender' in main.text or 'Marital' in main.text:
+        qtype = 'radio'
+    elif 'Check' in main.text:
+        qtype = 'checkbox'
+    else:
+        qtype = 'textbox'
+    questions.append(Question(main, children, qtype))
 
     return questions
 
@@ -71,9 +88,19 @@ def draw_answers(im, questions):
     d = ImageDraw.Draw(text_layer)
 
     for question in questions:
-        if len(question.children) == 0:
+        if question.qtype == 'textbox' and len(question.children) == 0:
             coordinates = question.main.box
             d.text((im.width*coordinates['Left'], im.height*coordinates['Top']+(height*1.4)),"Answer", font=fnt, fill=(0,0,0,255))
+        elif question.qtype == 'textbox':
+            for subquestion in question.children:
+                coordinates = subquestion.box
+                d.text((im.width*coordinates['Left'], im.height*coordinates['Top']+(height*1.4)),"Answer", font=fnt, fill=(0,0,0,255))
+        elif question.qtype == 'checkbox':
+            coordinates = question.children[2].box
+            d.text((im.width*coordinates['Left']-im.width*.026, im.height*coordinates['Top']),"X", font=fnt, fill=(0,0,0,255))
+        else:
+            coordinates = question.children[0].box
+            d.text((im.width*coordinates['Left']-im.width*.03, im.height*coordinates['Top']),"X", font=fnt, fill=(0,0,0,255))
 
     out = Image.alpha_composite(im, text_layer)
 
