@@ -15,5 +15,15 @@ def translate_data(data, target):
                 d[key] = translate_client.translate(d[key])['translatedText']
 
     return data
+
+def translate_questions(questions, target):
+    translate_client = translate.Client(target_language=target)
+    
+    for q in questions:
+        q['main']['text'] = translate_client.translate(q['main']['text'])['translatedText']
+        for s in q['children']:
+            s['text'] = translate_client.translate(s['text'])['translatedText']
+    
+    return questions
                     
                 
