@@ -1,5 +1,6 @@
 import json
 import boto3
+from PIL import Image, ImageDraw, ImageFont
 
 caps = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'
 
@@ -31,15 +32,11 @@ def textract(document_name):
                             aws_secret_access_key='NwkgJKjHIi4HyNEmL2CLLAYYC3y2rzIQWIC7492m')
 
     response = textract.detect_document_text(Document={'Bytes': image_bytes})
-    with open('form3.json', 'w') as outfile:
+    outname = document_name.split('.')[0]
+    with open('{}.json'.format(outname), 'w') as outfile:
         json.dump(response, outfile)
 
-def pull_text(response):
-    all_text = []
-    for block in response['Blocks']:
-        if block['BlockType'] == "LINE" and block['Text'] != 'C' and block['Text'] != ')' and block['Text'] != 'b.' and block['Text'] != 'c.':
-            all_text.append(block['Text'])
-    return all_text
+
 
 def pull_questions_grid(response):
     entries = []
@@ -64,6 +61,23 @@ def pull_questions_grid(response):
     questions.append(Question(main, children))
 
     return questions
+
+def draw_answers(im, questions):
+    coordinates = questions[0].main.box
+    height = int(im.height*coordinates['Height'])
+
+    text_layer = Image.new('RGBA', im.size, (255,255,255,0))
+    fnt = ImageFont.truetype('arial.ttf', height)
+    d = ImageDraw.Draw(text_layer)
+
+    for question in questions:
+        if len(question.children) == 0:
+            coordinates = question.main.box
+            d.text((im.width*coordinates['Left'], im.height*coordinates['Top']+(height*1.4)),"Answer", font=fnt, fill=(0,0,0,255))
+
+    out = Image.alpha_composite(im, text_layer)
+
+    out.show()
     
 
 def print_response(response):
@@ -72,9 +86,17 @@ def print_response(response):
 
 
 if __name__ == '__main__':
-    with open('response.json') as json_file:
+    im = Image.open('grid.png')
+
+    with open('grid.json') as json_file:
         response = json.load(json_file)
 
-    for i in pull_questions_grid(response):
-        i.display()
+    # build list of questions from AWS Response
+    questions = pull_questions_grid(response)
+
+    # draw answers to corresponding questions
+    draw_answers(im, questions)
+
+    
+   
         
