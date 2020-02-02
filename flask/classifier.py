@@ -29,6 +29,8 @@ class Classifier:
         index = self.compare(filepath)
         if index == 1:
             questions = self.process_essay(filepath)
+        else:
+            questions = self.process_grid(filepath)
 
         return questions
 
@@ -61,28 +63,46 @@ class Classifier:
         questions.append({'main': main, 'children': children, 'qtype': 'text'})
 
         return questions
+
+    def process_grid(self, filepath):
+        response = self.textract(filepath)
+
+        entries = []
+        for block in response['Blocks']:
+            if block['BlockType'] == "LINE":
+                box = block['Geometry']['BoundingBox']
+                entries.append({'text': block['Text'], 'box': box})
+
+        questions = []
+        children = []
+        main = entries[0]
+        qtype = 'text'
+
+        for line in entries[1:]:
+            if line['text'][0].isdigit():
+                questions.append({'main':main, 'children': children, 'qtype': qtype})
+                children = []
+                main = line
+            else:
+                children.append(line)
+
+        questions.append({'main':main, 'children': children, 'qtype': qtype})
+        return questions
       
 
         
 
     def textract(self, filename):
-        outname = filename.split('.')[0] + '.json'
-        if not os.path.isfile(outname):
-            with open(filename, 'rb') as document:
-                image_bytes = bytearray(document.read())
+        with open(filename, 'rb') as document:
+            image_bytes = bytearray(document.read())
 
-            textract = boto3.client('textract', region_name='us-east-1',
-                                    aws_access_key_id='AKIAJOZSX5OBM2FX4G2Q',
-                                    aws_secret_access_key='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')
+        textract = boto3.client('textract', region_name='us-east-1',
+                                aws_access_key_id='AKIAJOZSX5OBM2FX4G2Q',
+                                aws_secret_access_key='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')
 
-            response = textract.detect_document_text(Document={'Bytes': image_bytes})
+        response = textract.detect_document_text(Document={'Bytes': image_bytes})
 
             
-            with open('{}'.format(outname), 'w') as outfile:
-                json.dump(response, outfile)
-        else:
-            with open(outname) as json_file:
-                response = json.load(json_file)
 
         return response
 

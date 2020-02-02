@@ -1,4 +1,4 @@
-from flask import Flask, render_template, make_response, jsonify, request, session, send_from_directory
+from flask import Flask, render_template, make_response, jsonify, request, session, send_from_directory, flash, redirect, url_for
 from translator import translate_data, translate_questions, translate_phrase, translate_dict
 import html
 from PIL import Image, ImageDraw, ImageFont
@@ -29,7 +29,8 @@ def get_questions():
     document = request.args.get("document")
     if document == 'upload':
         c = Classifier()
-        questions = c.process('hashes/example.png')
+        questions = c.process('images/upload.png')
+        print(questions)
         with open('upload.json', 'w') as outfile:
             json.dump(questions, outfile)
     else:
@@ -105,7 +106,8 @@ def get_questions():
 def form_submit():
     if request.method == 'POST':
         answers = request.form.to_dict()
-        #answers = translate_dict(answers, 'en')
+        answers = translate_dict(answers, 'en')
+        
 
 
         questions = json.load(open('{}.json'.format(session.get('document')), 'r'))
@@ -155,14 +157,17 @@ def form_submit():
 
         out = out.convert('RGB')
         out.save('{}/{}.pdf'.format(app.config['UPLOAD_FOLDER'], document))
+        lang = session.get('lang')
+        dl = translate_phrase('Download', lang)
         session.clear()
-        return render_template('result.html', fileName='{}1.png'.format(document), dlFileName='{}.pdf'.format(document))
+        return render_template('result.html', fileName='{}1.png'.format(document), dlFileName='{}.pdf'.format(document), dl=dl)
         
         
     return 'you are a failure'
 
 @app.route('/document/<lang>')
 def document_select(lang):
+    session['lang'] = lang
     data = [{'title':'I-589', 'body':'Complete the Application for Asylum and for Withholding of Removal', 'upload': 'Go'},
             {'title':'I-485', 'body':'Complete the Application to Register Permanent Residence or Adjust Status.', 'upload': 'Go'},
             {'title':'Other', 'body':'Complete a form different from the ones presented.', 'upload':'Upload'}]
@@ -194,10 +199,22 @@ def i485(lang):
     session['document'] = 'i485'
     return render_template('form.html', lang=lang, document='i485')
 
-@app.route('/upload/<lang>')
-def upload(lang):
+@app.route('/uploadForm/<lang>')
+def upload_form(lang):
     session['document'] = 'upload'
     return render_template('form.html', lang=lang, document='upload')
+
+@app.route('/upload/<lang>', methods=['GET', 'POST'])
+def upload(lang):
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            flash('No file part')
+            return redirect(request.url)
+        file = request.files['file']
+        if file:
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], 'upload.png'))
+            return redirect(url_for('upload_form', lang=lang))
+    return render_template('upload.html', lang=lang)
 
 
 @app.route('/about')
