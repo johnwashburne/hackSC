@@ -158,9 +158,8 @@ def form_submit():
         out = out.convert('RGB')
         out.save('{}/{}.pdf'.format(app.config['UPLOAD_FOLDER'], document))
         lang = session.get('lang')
-        dl = translate_phrase('Download', lang)
         session.clear()
-        return render_template('result.html', fileName='{}1.png'.format(document), dlFileName='{}.pdf'.format(document), dl=dl)
+        return render_template('result.html', fileName='{}1.png'.format(document), dlFileName='{}.pdf'.format(document))
         
         
     return 'you are a failure'
