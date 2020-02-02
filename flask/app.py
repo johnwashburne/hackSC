@@ -1,9 +1,14 @@
-from flask import Flask, render_template, make_response, jsonify, request
-from translator import translate_data, translate_questions, translate_phrase
+from flask import Flask, render_template, make_response, jsonify, request, session
+from translator import translate_data, translate_questions, translate_phrase, translate_dict
+import requests
+from PIL import Image, ImageDraw, ImageFont
 import json
 app = Flask(__name__)
+app.secret_key = 'super secret key'
 
 lower = 'abcdefg'
+
+
 
 @app.route('/getQuestions/', methods=['GET'])
 def get_questions():
@@ -56,7 +61,7 @@ def get_questions():
             for s in q['children']:
                 a += '''
                 <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="radio" name="{}" id="Yes" value="{}">
+                    <input class="form-check-input" type="radio" name="{}" id="Yes" value="{}" checked>
                     <label class="form-check-label" for="Yes">{}</label>
                 </div>
                 '''.format(q['main']['text'].split('.')[0], count, s['text'])
@@ -82,10 +87,54 @@ def get_questions():
 @app.route('/formSubmit', methods=['GET', 'POST'])
 def form_submit():
     if request.method == 'POST':
-        answers = request.form
+        answers = request.form.to_dict()
+        answers = translate_dict(answers, 'en')
+        print(answers)
+
+
+        questions = json.load(open('{}.json'.format(session.get('document')), 'r'))
+
         for key in answers:
-            answers 
-        return request.form
+            if key[-1] not in lower:
+                questions[int(key)-1]['answer'] = answers[key]
+            else:
+                questions[int(key[:-1])-1]['children'][lower.index(key[-1])]['answer'] = answers[key]
+
+        
+                
+        im = Image.open('{}.png'.format(session.get('document')))
+        im = im.convert('RGBA')
+
+        coordinates = questions[0]['main']['box']
+        height = int(im.height*coordinates['Height'])
+
+        text_layer = Image.new('RGBA', im.size, (255,255,255,0))
+        fnt = ImageFont.truetype('arial.ttf', height)
+        d = ImageDraw.Draw(text_layer)
+
+
+        for question in questions:
+            if question['qtype'] == 'text' and len(question['children']) == 0:
+                coordinates = question['main']['box']
+                d.text((im.width*coordinates['Left'], im.height*coordinates['Top']+(height*1.4)), question['answer'], font=fnt, fill=(0,0,0,255))
+            elif question['qtype'] == 'text':
+                for i in question['children']:
+                   coordinates = i['box']
+                   d.text((im.width*coordinates['Left'], im.height*coordinates['Top']+(height*1.4)), i['answer'], font=fnt, fill=(0,0,0,255))
+            elif question['qtype'] == 'radio':
+                answer = question['answer']
+                coordinates = question['children'][int(answer)]['box']
+                d.text((im.width*coordinates['Left']-im.width*.025, im.height*coordinates['Top']),"X", font=fnt, fill=(0,0,0,255))
+            
+
+        out = Image.alpha_composite(im, text_layer)
+
+        out.save('static/outfile.png')
+        return render_template('result.html')
+
+
+        
+        
     return 'you are a failure'
 
 @app.route('/document/<lang>')
@@ -103,14 +152,8 @@ def document_select(lang):
 
 @app.route('/i589/<lang>')
 def i589(lang):
-    
-            
-    return render_template('form.html', lang=lang)
-
-@app.route('/form')
-def form():
-    return render_template('form.html')
-        
+    session['document'] = 'i589'      
+    return render_template('form.html', lang=lang)        
 
 
 @app.route('/')
