@@ -75,7 +75,7 @@ class Controller:
         print(len(questions))
         return questions
 
-if __name__ == "__main__":
+def output():
     c = Controller("grid.png")
     questions = c.get_questions()
     for q in questions:
@@ -85,3 +85,17 @@ if __name__ == "__main__":
     with open("i589.json", "w") as outfile:
         json.dump(questions, outfile)
         print('done')
+        
+if __name__ == "__main__":
+    c = Controller("i589.png")
+    questions = c.get_questions()
+    for q in questions:
+        print(q['main']['text'])
+        for c in q['children']:
+            print('\t' + c['text'])
+    with open("i589.json", "w") as outfile:
+        json.dump(questions, outfile)
+        print('done')
+        
+
+    

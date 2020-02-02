@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);">
+    <div class="card border-dark">
+        <div class="card-body">
+            <form class="overflow-auto" style="height: 600px" id="main-form" action="/formSubmit" method="post">
+              <img src="/static/outfile.png" style="width: 100%"/>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

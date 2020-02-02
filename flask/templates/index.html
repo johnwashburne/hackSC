@@ -1,11 +1,18 @@
 {% extends "base.html" %}
     {% block content %}
     <div class="container" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);">
+      <div class="card border-dark">
+
+
         <div class="list-group border-dark">
           <button type="button" class="list-group-item list-group-item-action" style="color:#990000" disabled>Choose a Language</button>
           <a type="button" class="list-group-item list-group-item-action" href="document/en">English</a>
           <a type="button" class="list-group-item list-group-item-action" href="document/es">Español</a>
           <a type="button" class="list-group-item list-group-item-action" href="document/zh-CN">汉语</a>
+          <a type="button" class="list-group-item list-group-item-action" href="document/fr">Français</a>
+          <a type="button" class="list-group-item list-group-item-action" href="document/ko">한국어</a>
+          <a type="button" class="list-group-item list-group-item-action" href="document/de">Deutsch</a>
         </div>
+      </div>
     </div>
     {% endblock %}
