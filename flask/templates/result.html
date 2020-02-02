@@ -4,9 +4,19 @@
     <div class="card border-dark">
         <div class="card-body">
             <form class="overflow-auto" style="height: 600px" id="main-form" action="/formSubmit" method="post">
-              <img src="/static/outfile.png" style="width: 100%"/>
+              <img src="{{url_for('uploaded_file', filename=fileName)}}" style="width: 100%"/>
+
             </form>
         </div>
+    </div>
+    <div class="row" style="margin-top: 10px; padding-top: 10px">
+      <div class="col-2">
+
+      </div>
+      <div class="col-8">
+        <a class="btn btn-secondary btn-lg btn-block" href="{{url_for('uploaded_file', filename=dlFileName)}}" role="button" download>Download</a>
+      </div>
+
     </div>
 </div>
 {% endblock %}

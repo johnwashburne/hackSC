@@ -20,7 +20,7 @@
       }
 
       window.onload = function getQuestions(){
-        document.getElementById("main-form").innerHTML = httpGet("/getQuestions?lang={{ lang }}&document=i589");
+        document.getElementById("main-form").innerHTML = httpGet("/getQuestions?lang={{ lang }}&document={{ document }}");
         console.log("a");
       }
     </script>

@@ -1,13 +1,25 @@
-from flask import Flask, render_template, make_response, jsonify, request, session
+from flask import Flask, render_template, make_response, jsonify, request, session, send_from_directory
 from translator import translate_data, translate_questions, translate_phrase, translate_dict
-import requests
+import html
 from PIL import Image, ImageDraw, ImageFont
 import json
+import os
+
 app = Flask(__name__)
 app.secret_key = 'super secret key'
+app.config['UPLOAD_FOLDER'] = "forms"
 
-lower = 'abcdefg'
+ALLOWED_EXTENSIONS = ['pdf', 'png', 'jpg']
 
+lower = 'abcdefghijklmno'
+
+# fixes issue with old images being displayed
+@app.after_request
+def after_request(response):
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, public, max-age=0"
+    response.headers["Expires"] = 0
+    response.headers["Pragma"] = "no-cache"
+    return response
 
 
 @app.route('/getQuestions/', methods=['GET'])
@@ -29,11 +41,18 @@ def get_questions():
     a = ""
     for q in questions:
         if q['qtype'] == 'text' and len(q['children']) == 0:
-            a += '''
-            <div class="form-group">
-            <label for="{}">{}</label>
-            <input type="name" name="{}" class="form-control" id="{}" placeholder="{}"></div>
-            '''.format(q['main']['text'].split('.')[0], q['main']['text'], q['main']['text'].split('.')[0], q['main']['text'].split('.')[0], placeholder)
+            if session.get('document') == 'i589' or session.get('document') == 'i485':
+                a += '''
+                <div class="form-group">
+                <label for="{}">{}</label>
+                <input type="name" name="{}" class="form-control" placeholder="{}"></div>
+                '''.format(q['main']['text'].split('.')[0], q['main']['text'], q['main']['text'].split('.')[0], placeholder)
+            else:
+                a += '''
+                <div class="form-group">
+                <label for="{}">{}</label>
+                <input type="name" name="{}" class="form-control" placeholder="{}"></div>
+                '''.format(q['main']['text'].split('.')[0], q['main']['text'], q['main']['text'].split(' ')[0], placeholder)
             
 
         elif q['qtype'] == 'text':
@@ -81,24 +100,31 @@ def get_questions():
     a += """
         <input class="btn btn-primary" type="submit" value="Submit">
         """
-
     return a
+
 
 @app.route('/formSubmit', methods=['GET', 'POST'])
 def form_submit():
     if request.method == 'POST':
         answers = request.form.to_dict()
-        answers = translate_dict(answers, 'en')
-        print(answers)
+        #answers = translate_dict(answers, 'en')
 
 
         questions = json.load(open('{}.json'.format(session.get('document')), 'r'))
 
-        for key in answers:
-            if key[-1] not in lower:
-                questions[int(key)-1]['answer'] = answers[key]
-            else:
-                questions[int(key[:-1])-1]['children'][lower.index(key[-1])]['answer'] = answers[key]
+        if session.get('document') == 'i589' or session.get('document') == 'i485':
+            for key in answers:
+                if key[-1] not in lower:
+                    questions[int(key)-1]['answer'] = answers[key]
+                else:
+                    questions[int(key[:-1])-1]['children'][lower.index(key[-1])]['answer'] = answers[key]
+        elif session.get('document') == 'i485':
+            i = 0
+            print(answers)
+            for key in answers:
+                questions[i]['answer'] = answers[key]
+                i += 1
+            print(len(questions), len(answers))
 
         
                 
@@ -114,13 +140,17 @@ def form_submit():
 
 
         for question in questions:
+            # textbox inputs no subfields
             if question['qtype'] == 'text' and len(question['children']) == 0:
                 coordinates = question['main']['box']
+                print(question)
                 d.text((im.width*coordinates['Left'], im.height*coordinates['Top']+(height*1.4)), question['answer'], font=fnt, fill=(0,0,0,255))
+            # texbox input w/ subfields
             elif question['qtype'] == 'text':
                 for i in question['children']:
                    coordinates = i['box']
                    d.text((im.width*coordinates['Left'], im.height*coordinates['Top']+(height*1.4)), i['answer'], font=fnt, fill=(0,0,0,255))
+            # radio button input
             elif question['qtype'] == 'radio':
                 answer = question['answer']
                 coordinates = question['children'][int(answer)]['box']
@@ -129,10 +159,14 @@ def form_submit():
 
         out = Image.alpha_composite(im, text_layer)
 
-        out.save('static/outfile.png')
-        return render_template('result.html')
+        document = session.get('document')
 
+        out.save('{}/{}.png'.format(app.config['UPLOAD_FOLDER'], document))
 
+        out = out.convert('RGB')
+        out.save('{}/{}.pdf'.format(app.config['UPLOAD_FOLDER'], document))
+        session.clear()
+        return render_template('result.html', fileName='{}.png'.format(document), dlFileName='{}.pdf'.format(document))
         
         
     return 'you are a failure'
@@ -148,17 +182,38 @@ def document_select(lang):
     data[1]['url'] = '/i485/{}'.format(lang)
     data[2]['url'] = '/upload'
 
+    for d in data:
+        d['body'] = html.unescape(d['body'])
+
     return render_template("document.html", data=data)
+
+
+@app.route('/forms/<filename>', methods=['GET'])
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
 
 @app.route('/i589/<lang>')
 def i589(lang):
     session['document'] = 'i589'      
-    return render_template('form.html', lang=lang)        
+    return render_template('form.html', lang=lang, document='i589')
+
+
+@app.route('/i485/<lang>')
+def i485(lang):
+    session['document'] = 'i485'
+    return render_template('form.html', lang=lang, document='i485')
+
+
+@app.route('/about')
+def about():
+    return render_template('about.html')
 
 
 @app.route('/')
 def index():
     return render_template('index.html')
+
 
 if __name__ == "__main__":
     app.run()

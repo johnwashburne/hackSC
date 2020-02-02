@@ -1,5 +1,4 @@
 <!doctype html>
-<!doctype html>
 <html lang="en">
   <head>
     <!-- Required meta tags -->
@@ -12,14 +11,21 @@
     <title>Kuratoro</title>
     <link rel="icon" href="{{url_for('static', filename='wings.png')}}">
   </head>
-  <body style="background-color: #ffe6d9; background-image: url({{url_for('static', filename='world.png')}}); background-size: cover; background-repeat: no-repeat;">
+  <body>
+    <video autoplay muted loop id="myVideo" style="position: fixed; right: 0; bottom: 0; min-width: 100%; min-height: 100%;">
+        <source src="{{url_for('static', filename='world.mp4')}}" type="video/mp4">
+    </video>
     <nav class="navbar bg-light border-bottom border-dark">
         <a class="navbar-brand" href="index.html">
-            <img src="{{url_for('static', filename='name.png')}}" width="100" height="29.37">
+            <img src="{{url_for('static', filename='brand.png')}}" width="100" height="22.70">
+        </a>
+        <a class="navbar-brand" style="color:#990000" href="about.html">
+            About
         </a>
     </nav>
     {% block content %}
     {% endblock %}
+
     <!-- Optional JavaScript -->
     <!-- jQuery first, then Popper.js, then Bootstrap JS -->
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
