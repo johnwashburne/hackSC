@@ -2,12 +2,13 @@ from flask import Flask, render_template, make_response, jsonify, request, sessi
 from translator import translate_data, translate_questions, translate_phrase, translate_dict
 import html
 from PIL import Image, ImageDraw, ImageFont
+from classifier import Classifier
 import json
 import os
 
 app = Flask(__name__)
 app.secret_key = 'super secret key'
-app.config['UPLOAD_FOLDER'] = "forms"
+app.config['UPLOAD_FOLDER'] = "images"
 
 ALLOWED_EXTENSIONS = ['pdf', 'png', 'jpg']
 
@@ -26,8 +27,13 @@ def after_request(response):
 def get_questions():
     lang = request.args.get("lang")
     document = request.args.get("document")
-    
-    questions = json.load(open('{}.json'.format(document), 'r'))
+    if document == 'upload':
+        c = Classifier()
+        questions = c.process('hashes/example.png')
+        with open('upload.json', 'w') as outfile:
+            json.dump(questions, outfile)
+    else:
+        questions = json.load(open('{}.json'.format(document), 'r'))
 
     if request.args.get('type') == 'json':
         return jsonify(questions)
@@ -41,19 +47,11 @@ def get_questions():
     a = ""
     for q in questions:
         if q['qtype'] == 'text' and len(q['children']) == 0:
-            if session.get('document') == 'i589' or session.get('document') == 'i485':
-                a += '''
-                <div class="form-group">
-                <label for="{}">{}</label>
-                <input type="name" name="{}" class="form-control" placeholder="{}"></div>
-                '''.format(q['main']['text'].split('.')[0], q['main']['text'], q['main']['text'].split('.')[0], placeholder)
-            else:
-                a += '''
-                <div class="form-group">
-                <label for="{}">{}</label>
-                <input type="name" name="{}" class="form-control" placeholder="{}"></div>
-                '''.format(q['main']['text'].split('.')[0], q['main']['text'], q['main']['text'].split(' ')[0], placeholder)
-            
+            a += '''
+            <div class="form-group">
+            <label for="{}">{}</label>
+            <input type="name" name="{}" class="form-control" placeholder="{}"></div>
+            '''.format(q['main']['text'].split('.')[0], q['main']['text'], q['main']['text'].split('.')[0], placeholder)
 
         elif q['qtype'] == 'text':
             a += '''
@@ -112,23 +110,16 @@ def form_submit():
 
         questions = json.load(open('{}.json'.format(session.get('document')), 'r'))
 
-        if session.get('document') == 'i589' or session.get('document') == 'i485':
-            for key in answers:
-                if key[-1] not in lower:
-                    questions[int(key)-1]['answer'] = answers[key]
-                else:
-                    questions[int(key[:-1])-1]['children'][lower.index(key[-1])]['answer'] = answers[key]
-        elif session.get('document') == 'i485':
-            i = 0
-            print(answers)
-            for key in answers:
-                questions[i]['answer'] = answers[key]
-                i += 1
-            print(len(questions), len(answers))
+        for key in answers:
+            if key[-1] not in lower:
+                questions[int(key)-1]['answer'] = answers[key]
+            else:
+                questions[int(key[:-1])-1]['children'][lower.index(key[-1])]['answer'] = answers[key]
+        
 
         
                 
-        im = Image.open('{}.png'.format(session.get('document')))
+        im = Image.open('{}/{}.png'.format(app.config['UPLOAD_FOLDER'], session.get('document')))
         im = im.convert('RGBA')
 
         coordinates = questions[0]['main']['box']
@@ -143,7 +134,6 @@ def form_submit():
             # textbox inputs no subfields
             if question['qtype'] == 'text' and len(question['children']) == 0:
                 coordinates = question['main']['box']
-                print(question)
                 d.text((im.width*coordinates['Left'], im.height*coordinates['Top']+(height*1.4)), question['answer'], font=fnt, fill=(0,0,0,255))
             # texbox input w/ subfields
             elif question['qtype'] == 'text':
@@ -161,12 +151,12 @@ def form_submit():
 
         document = session.get('document')
 
-        out.save('{}/{}.png'.format(app.config['UPLOAD_FOLDER'], document))
+        out.save('{}/{}1.png'.format(app.config['UPLOAD_FOLDER'], document))
 
         out = out.convert('RGB')
         out.save('{}/{}.pdf'.format(app.config['UPLOAD_FOLDER'], document))
         session.clear()
-        return render_template('result.html', fileName='{}.png'.format(document), dlFileName='{}.pdf'.format(document))
+        return render_template('result.html', fileName='{}1.png'.format(document), dlFileName='{}.pdf'.format(document))
         
         
     return 'you are a failure'
@@ -180,7 +170,7 @@ def document_select(lang):
     data = translate_data(data, lang)
     data[0]['url'] = '/i589/{}'.format(lang)
     data[1]['url'] = '/i485/{}'.format(lang)
-    data[2]['url'] = '/upload'
+    data[2]['url'] = '/upload/{}'.format(lang)
 
     for d in data:
         d['body'] = html.unescape(d['body'])
@@ -203,6 +193,11 @@ def i589(lang):
 def i485(lang):
     session['document'] = 'i485'
     return render_template('form.html', lang=lang, document='i485')
+
+@app.route('/upload/<lang>')
+def upload(lang):
+    session['document'] = 'upload'
+    return render_template('form.html', lang=lang, document='upload')
 
 
 @app.route('/about')
