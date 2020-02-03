@@ -10,7 +10,8 @@ class Controller:
     def __init__(self, file=None):
         if file != None:
             self.file = file
-            self.textract()
+            self.credentials = json.load(open('credentials.json', 'r'))
+            self.textract()            
 
     def change_file(self, file):
         self.file = file
@@ -23,8 +24,8 @@ class Controller:
                 image_bytes = bytearray(document.read())
 
             textract = boto3.client('textract', region_name='us-east-1',
-                                    aws_access_key_id='AKIAJOZSX5OBM2FX4G2Q',
-                                    aws_secret_access_key='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')
+                                    aws_access_key_id=self.credentials['access_key'],
+                                    aws_secret_access_key=self.credetials['secret_key'])
 
             self.response = textract.detect_document_text(Document={'Bytes': image_bytes})
 

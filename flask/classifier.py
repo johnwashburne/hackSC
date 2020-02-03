@@ -4,12 +4,13 @@ import boto3
 import os
 import json
 
-
-
+# super basic image classifier based on image hashes
+# need to definitely add more question types as well as a smart split to divide full pages into individual questions that fit with predefined types
 class Classifier:
 
     def __init__(self):
         self.hashes = [imagehash.average_hash(Image.open('hashes/grid.png')), imagehash.average_hash(Image.open('hashes/essay.png'))]
+        self.credentials = json.load(open('credentials.json', 'r'))
 
     def compare(self, filepath):
         min_ = 100000000000
@@ -33,6 +34,7 @@ class Classifier:
             questions = self.process_grid(filepath)
 
         return questions
+
 
     def process_essay(self, filepath):
         response = self.textract(filepath)
@@ -64,6 +66,7 @@ class Classifier:
 
         return questions
 
+
     def process_grid(self, filepath):
         response = self.textract(filepath)
 
@@ -88,17 +91,15 @@ class Classifier:
 
         questions.append({'main':main, 'children': children, 'qtype': qtype})
         return questions
+
       
-
-        
-
     def textract(self, filename):
         with open(filename, 'rb') as document:
             image_bytes = bytearray(document.read())
 
         textract = boto3.client('textract', region_name='us-east-1',
-                                aws_access_key_id='AKIAJOZSX5OBM2FX4G2Q',
-                                aws_secret_access_key='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')
+                                aws_access_key_id=self.credentials['access_key'],
+                                aws_secret_access_key=self.credentials['secret_key'])
 
         response = textract.detect_document_text(Document={'Bytes': image_bytes})
 
@@ -107,8 +108,6 @@ class Classifier:
         return response
 
         
-        
-
 if __name__ == "__main__":
     c = Classifier()
     print(c.process("hashes/example.png"))

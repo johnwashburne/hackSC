@@ -10,11 +10,9 @@ app = Flask(__name__)
 app.secret_key = 'super secret key'
 app.config['UPLOAD_FOLDER'] = "images"
 
-ALLOWED_EXTENSIONS = ['pdf', 'png', 'jpg']
-
 lower = 'abcdefghijklmno'
 
-# fixes issue with old images being displayed
+# fixes issue with cached images being displayed
 @app.after_request
 def after_request(response):
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, public, max-age=0"
@@ -27,6 +25,8 @@ def after_request(response):
 def get_questions():
     lang = request.args.get("lang")
     document = request.args.get("document")
+
+    # classify uploaded image
     if document == 'upload':
         c = Classifier()
         questions = c.process('images/upload.png')
@@ -39,10 +39,7 @@ def get_questions():
     if request.args.get('type') == 'json':
         return jsonify(questions)
 
-    
     questions = translate_questions(questions, lang)
-
-    
     placeholder = translate_phrase('Answer here', lang)
     
     a = ""
@@ -107,8 +104,6 @@ def form_submit():
     if request.method == 'POST':
         answers = request.form.to_dict()
         answers = translate_dict(answers, 'en')
-        
-
 
         questions = json.load(open('{}.json'.format(session.get('document')), 'r'))
 
@@ -117,10 +112,7 @@ def form_submit():
                 questions[int(key)-1]['answer'] = answers[key]
             else:
                 questions[int(key[:-1])-1]['children'][lower.index(key[-1])]['answer'] = answers[key]
-        
-
-        
-                
+               
         im = Image.open('{}/{}.png'.format(app.config['UPLOAD_FOLDER'], session.get('document')))
         im = im.convert('RGBA')
 
@@ -130,7 +122,6 @@ def form_submit():
         text_layer = Image.new('RGBA', im.size, (255,255,255,0))
         fnt = ImageFont.truetype('arial.ttf', height)
         d = ImageDraw.Draw(text_layer)
-
 
         for question in questions:
             # textbox inputs no subfields
@@ -152,17 +143,16 @@ def form_submit():
         out = Image.alpha_composite(im, text_layer)
 
         document = session.get('document')
-
         out.save('{}/{}1.png'.format(app.config['UPLOAD_FOLDER'], document))
 
         out = out.convert('RGB')
         out.save('{}/{}.pdf'.format(app.config['UPLOAD_FOLDER'], document))
-        lang = session.get('lang')
+        
         session.clear()
         return render_template('result.html', fileName='{}1.png'.format(document), dlFileName='{}.pdf'.format(document))
         
-        
     return 'you are a failure'
+
 
 @app.route('/document/<lang>')
 def document_select(lang):
@@ -172,6 +162,7 @@ def document_select(lang):
             {'title':'Other', 'body':'Complete a form different from the ones presented.', 'upload':'Upload'}]
 
     data = translate_data(data, lang)
+
     data[0]['url'] = '/i589/{}'.format(lang)
     data[1]['url'] = '/i485/{}'.format(lang)
     data[2]['url'] = '/upload/{}'.format(lang)
