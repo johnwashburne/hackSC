@@ -30,7 +30,6 @@ def get_questions():
     if document == 'upload':
         c = Classifier()
         questions = c.process('images/upload.png')
-        print(questions)
         with open('upload.json', 'w') as outfile:
             json.dump(questions, outfile)
     else:
